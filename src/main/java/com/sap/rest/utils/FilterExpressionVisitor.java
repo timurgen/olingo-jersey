@@ -71,7 +71,7 @@ public class FilterExpressionVisitor implements ExpressionVisitor<Object> {
         }
         else {
             try {
-                return Integer.parseInt(literalAsString);
+                return Integer.valueOf(literalAsString);
             } catch (NumberFormatException e) {
                 throw new ODataApplicationException("Only Edm.Int32 and Edm.String literals are implemented", HttpStatusCode.NOT_IMPLEMENTED.getStatusCode(), Locale.ENGLISH);
             }
@@ -117,18 +117,22 @@ public class FilterExpressionVisitor implements ExpressionVisitor<Object> {
                 throw new ODataApplicationException("Class " + left.getClass().getCanonicalName() + " not expected", HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.ENGLISH);
 
 
-            if(binaryOperatorKind == BinaryOperatorKind.EQ)
-                return result == 0;
-            else if (binaryOperatorKind == BinaryOperatorKind.GE)
-                return result >= 0;
-            else if (binaryOperatorKind == BinaryOperatorKind.LE)
-                return result <= 0;
-            else if (binaryOperatorKind == BinaryOperatorKind.GT)
-                return result > 0;
-            else if (binaryOperatorKind == BinaryOperatorKind.LT)
-                return result < 0;
-            else
+            if(null == binaryOperatorKind)
                 return !(result == 0);
+            else switch (binaryOperatorKind) {
+                case EQ:
+                    return result == 0;
+                case GE:
+                    return result >= 0;
+                case LE:
+                    return result <= 0;
+                case GT:
+                    return result > 0;
+                case LT:
+                    return result < 0;
+                default:
+                    return !(result == 0);
+            }
         }
         else
             throw new ODataApplicationException("Comparison needs two equal types", HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.ENGLISH);
@@ -139,16 +143,20 @@ public class FilterExpressionVisitor implements ExpressionVisitor<Object> {
             Integer valueLeft = (Integer) left;
             Integer valueRight = (Integer) right;
 
-            if (binaryOperatorKind == BinaryOperatorKind.ADD)
-                return valueLeft + valueRight;
-            else if (binaryOperatorKind == BinaryOperatorKind.SUB)
-                return valueLeft - valueRight;
-            else if (binaryOperatorKind == BinaryOperatorKind.DIV)
-                return valueLeft / valueRight;
-            else if ( binaryOperatorKind == BinaryOperatorKind.MUL)
-                return valueLeft * valueRight;
-            else
+            if (null == binaryOperatorKind)
                 return valueLeft % valueRight;
+            else switch (binaryOperatorKind) {
+                case ADD:
+                    return valueLeft + valueRight;
+                case SUB:
+                    return valueLeft - valueRight;
+                case DIV:
+                    return valueLeft / valueRight;
+                case MUL:
+                    return valueLeft * valueRight;
+                default:
+                    return valueLeft % valueRight;
+            }
         }
         else
             throw new ODataApplicationException("Arithmetic operations needs two numeric operands", HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.ENGLISH);
@@ -156,16 +164,28 @@ public class FilterExpressionVisitor implements ExpressionVisitor<Object> {
 
     @Override
     public Object visitBinaryOperator(BinaryOperatorKind binaryOperatorKind, Object object, Object t1) throws ExpressionVisitException, ODataApplicationException {
-        if(binaryOperatorKind == BinaryOperatorKind.ADD || binaryOperatorKind == BinaryOperatorKind.SUB || binaryOperatorKind == BinaryOperatorKind.DIV
-                || binaryOperatorKind == BinaryOperatorKind.MUL || binaryOperatorKind == BinaryOperatorKind.MOD)
-            return evaluateArithmeticOperation(binaryOperatorKind, object, t1);
-        else if(binaryOperatorKind == BinaryOperatorKind.EQ || binaryOperatorKind == BinaryOperatorKind.GE || binaryOperatorKind == BinaryOperatorKind.GT
-                || binaryOperatorKind == BinaryOperatorKind.LE || binaryOperatorKind == BinaryOperatorKind.LT || binaryOperatorKind == BinaryOperatorKind.NE)
-            return evaluateComparisonOperation(binaryOperatorKind, object, t1);
-        else if (binaryOperatorKind == BinaryOperatorKind.AND || binaryOperatorKind == BinaryOperatorKind.OR)
-            return evaluateBooleanOperation(binaryOperatorKind, object, t1);
-        else
+        if(null == binaryOperatorKind)
             throw new ODataApplicationException("Binary operation " + binaryOperatorKind.name() + " is not implemented", HttpStatusCode.NOT_IMPLEMENTED.getStatusCode(), Locale.ENGLISH);
+        else switch (binaryOperatorKind) {
+            case ADD:
+            case SUB:
+            case DIV:
+            case MUL:
+            case MOD:
+                return evaluateArithmeticOperation(binaryOperatorKind, object, t1);
+            case EQ:
+            case GE:
+            case GT:
+            case LE:
+            case LT:
+            case NE:
+                return evaluateComparisonOperation(binaryOperatorKind, object, t1);
+            case AND:
+            case OR:
+                return evaluateBooleanOperation(binaryOperatorKind, object, t1);
+            default:
+                throw new ODataApplicationException("Binary operation " + binaryOperatorKind.name() + " is not implemented", HttpStatusCode.NOT_IMPLEMENTED.getStatusCode(), Locale.ENGLISH);
+        }
     }
 
     @Override

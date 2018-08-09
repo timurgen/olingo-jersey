@@ -52,6 +52,8 @@ public class CarsEdmProvider extends CsdlAbstractEdmProvider {
                                         new CsdlProperty().setName("Model").setType(EdmPrimitiveTypeKind.String.getFullQualifiedName())
                                 ));
                          break;
+            default:
+                throw new ODataException("Entity type not found");
         }
         return entityType;
     }

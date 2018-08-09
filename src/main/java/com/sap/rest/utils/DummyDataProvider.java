@@ -12,52 +12,56 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.*;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 public class DummyDataProvider {
-    private String driver = "org.apache.derby.jdbc.EmbeddedDriver";
-    private String protocol = "jdbc:derby:";
-    private String dbName;
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DummyDataProvider.class);
+
+    private final String driver = "org.apache.derby.jdbc.EmbeddedDriver";
+    private final String protocol = "jdbc:derby:";
+    private final String dbName;
     private Connection connection;
-    private static final Logger logger = LoggerFactory.getLogger(DummyDataProvider.class);
 
     public DummyDataProvider() throws SQLException {
-        dbName = "derbyDB";
+        this.dbName = "derbyDB";
 
         initializeConnection();
         createCarsTable();
         createCars();
-        connection.commit();
+        this.connection.commit();
     }
 
     private void initializeConnection() throws SQLException {
+        LOGGER.info("Create derby connection");
         Properties properties = new Properties();
-        properties.put("user", "user1");
-        properties.put("password", "user1");
+        properties.setProperty("user", "user1");
+        properties.setProperty("password", "user1");
 
-        connection = DriverManager.getConnection(protocol + dbName + ";create=true", properties);
+        this.connection = DriverManager.getConnection(protocol + this.dbName + ";create=true", properties);
 
-        Statement statement = connection.createStatement();
-        statement.execute("drop table Cars");
+        try (Statement statement = this.connection.createStatement()) {
+            statement.execute("drop table Cars");
+        }
     }
 
     private void createCarsTable() throws SQLException {
-        Statement statement = connection.createStatement();
-        statement.execute("create table Cars(id int, model varchar(40))");
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("create table Cars(id int, model varchar(40))");
+        }
     }
 
     private void createCars() throws SQLException {
-        PreparedStatement preparedStatement = connection.prepareStatement("insert into Cars values(?, ?)");
-        preparedStatement.setInt(1, 1);
-        preparedStatement.setString(2, "Maruti");
-        preparedStatement.executeUpdate();
+        try (PreparedStatement preparedStatement = connection.prepareStatement("insert into Cars values(?, ?)")) {
+            preparedStatement.setInt(1, 1);
+            preparedStatement.setString(2, "Maruti");
+            preparedStatement.executeUpdate();
 
-        preparedStatement.setInt(1, 2);
-        preparedStatement.setString(2, "Hyundai");
-        preparedStatement.executeUpdate();
+            preparedStatement.setInt(1, 2);
+            preparedStatement.setString(2, "Hyundai");
+            preparedStatement.executeUpdate();
+        }
     }
 
     private Property createPrimitive(String name, Object value) {
@@ -68,23 +72,21 @@ public class DummyDataProvider {
         try {
             return new URI(entitySetName + "(" + String.valueOf(id) + ")");
         } catch (URISyntaxException e) {
-            logger.error(e.getMessage());
+            LOGGER.error(e.getMessage());
         }
         return null;
     }
 
-    public EntityCollection readAll(EdmEntitySet edmEntitySet) throws SQLException {
-        Statement statement = connection.createStatement();
-
-        ResultSet rs = statement.executeQuery("SELECT id, model FROM Cars ORDER BY id");
-        EntityCollection entityCollection = new EntityCollection();
-
-        while (rs.next()) {
-            Entity entity = new Entity().addProperty(createPrimitive("Id", rs.getInt(1))).addProperty(createPrimitive("Model", rs.getString(2)));
-            entity.setId(createId("Cars", rs.getInt(1)));
-            entityCollection.getEntities().add(entity);
+    public final EntityCollection readAll(EdmEntitySet edmEntitySet) throws SQLException {
+        EntityCollection entityCollection;
+        try (Statement statement = connection.createStatement(); ResultSet rs = statement.executeQuery("SELECT id, model FROM Cars ORDER BY id")) {
+            entityCollection = new EntityCollection();
+            while (rs.next()) {
+                Entity entity = new Entity().addProperty(createPrimitive("Id", rs.getInt(1))).addProperty(createPrimitive("Model", rs.getString(2)));
+                entity.setId(createId("Cars", rs.getInt(1)));
+                entityCollection.getEntities().add(entity);
+            }
         }
-
         return entityCollection;
     }
 
@@ -93,31 +95,34 @@ public class DummyDataProvider {
 
         EntityCollection entitySet = readAll(edmEntitySet);
 
-        if(entitySet == null)
-            return null;
-        else {
-            try {
-                for(Entity entity: entitySet.getEntities()) {
-                    Boolean found = true;
+        try {
+            for (Entity entity : entitySet.getEntities()) {
+                boolean found = true;
 
-                    for(UriParameter parameter: parameters) {
-                        EdmProperty property = (EdmProperty) entityType.getProperty(parameter.getName());
-                        EdmPrimitiveType type = (EdmPrimitiveType) property.getType();
+                for (UriParameter parameter : parameters) {
+                    EdmProperty property = (EdmProperty) entityType.getProperty(parameter.getName());
+                    EdmPrimitiveType type = (EdmPrimitiveType) property.getType();
 
-                        if(type.valueToString(entity.getProperty(parameter.getName()).getValue(), property.isNullable(), property.getMaxLength(), property.getPrecision(),
-                                property.getScale(), property.isUnicode()).equals(parameter.getText())) {
-                            found = false;
-                            break;
-                        }
+                    if (type.valueToString(entity.getProperty(parameter.getName()).getValue(), property.isNullable(), property.getMaxLength(), property.getPrecision(),
+                            property.getScale(), property.isUnicode()).equals(parameter.getText())) {
+                        found = false;
+                        break;
                     }
-                    if(found)
-                        return entity;
                 }
-                return null;
-            } catch (EdmPrimitiveTypeException e) {
-                logger.error(e.getMessage());
+                if (found) {
+                    return entity;
+                }
             }
+            return null;
+        } catch (EdmPrimitiveTypeException e) {
+            LOGGER.error(e.getMessage());
         }
+
         return null;
+    }
+
+    @Override
+    public String toString() {
+        return "DummyDataProvider{" + "driver=" + driver + ", protocol=" + protocol + ", dbName=" + dbName + ", connection=" + connection + '}';
     }
 }

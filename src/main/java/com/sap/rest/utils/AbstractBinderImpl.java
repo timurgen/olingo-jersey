@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.SQLException;
 
 public class AbstractBinderImpl extends AbstractBinder {
-    public static final Logger logger = LoggerFactory.getLogger(AbstractBinderImpl.class);
+    public static final Logger LOGGER = LoggerFactory.getLogger(AbstractBinderImpl.class);
 
     @Override
     protected void configure() {
@@ -15,7 +15,7 @@ public class AbstractBinderImpl extends AbstractBinder {
         try {
             dummyDataProvider = new DummyDataProvider();
         } catch (SQLException e) {
-            logger.error(e.getMessage());
+            LOGGER.error(e.getMessage());
         }
         bind(dummyDataProvider).to(DummyDataProvider.class);
     }

@@ -19,10 +19,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.StreamingOutput;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -33,8 +30,8 @@ public class CarServiceImpl {
     private HttpServletRequest httpServletRequest;
     @Context
     private HttpServletResponse httpServletResponse;
-    private DummyDataProvider dataProvider;
-    private static final Logger logger = LoggerFactory.getLogger(CarServiceImpl.class);
+    private final DummyDataProvider dataProvider;
+    private static final Logger LOGGER = LoggerFactory.getLogger(CarServiceImpl.class);
 
     @Inject
     public CarServiceImpl(DummyDataProvider dummyDataProvider) {
@@ -42,12 +39,11 @@ public class CarServiceImpl {
     }
 
     private ODataHttpHandler prepareHandler() {
+        LOGGER.info("Prepare handler");
         OData oData = OData.newInstance();
 
-        ServiceMetadata edm = oData.createServiceMetadata(new CarsEdmProvider(), new ArrayList<EdmxReference>());
-        ODataHttpHandler handler = oData.createHandler(edm);
-
-        return handler;
+        ServiceMetadata edm = oData.createServiceMetadata(new CarsEdmProvider(), new ArrayList<>());
+        return oData.createHandler(edm);
     }
 
     private void processRequestWithEntityCollectionProcessor(ODataHttpHandler oDataHttpHandler, EntityCollectionProcessor entityCollectionProcessor) {
@@ -58,14 +54,14 @@ public class CarServiceImpl {
     @GET
     @Path("Cars")
     @Produces({
-            "application/json"
+            "application/xml"
     })
     public ResponseCreator getCars() throws SQLException {
         try {
             /**
              * choose appropriate Olingo Processor
              */
-            DataEntityCollectionProcessor dataEntityCollectionProcessor = new DataEntityCollectionProcessor(dataProvider);
+            DataEntityCollectionProcessor dataEntityCollectionProcessor = new DataEntityCollectionProcessor(this.dataProvider);
 
             /**
              * process Request now with Olingo
@@ -75,15 +71,12 @@ public class CarServiceImpl {
             /**
              * process Response with Jersey ResponseWrapper
              */
-            return ResponseCreator.OK(new StreamingOutput() {
-                        @Override
-                        public void write(OutputStream outputStream) throws IOException, WebApplicationException {
-                            outputStream.write(IOUtils.toByteArray(dataEntityCollectionProcessor.getContent()));
-                        }
-                    });
+            return ResponseCreator.OK((OutputStream outputStream) -> {
+                outputStream.write(IOUtils.toByteArray(dataEntityCollectionProcessor.getContent()));
+            });
 
         } catch (RuntimeException e) {
-            logger.error(e.getMessage());
+            LOGGER.error(e.getMessage());
         }
         return null;
     }
